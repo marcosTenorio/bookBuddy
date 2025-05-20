@@ -1,103 +1,156 @@
-import Image from "next/image";
+'use client'
+
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import Book from './components/Book'
+import BookSkeleton from './components/BookSkeleton'
+import SearchForm from './components/SearchForm'
+import Pagination from './components/ui/Pagination'
+import { useSearch } from './context/SearchContext'
+
+const BOOKS_PER_PAGE = 15
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const {
+    searchQuery,
+    searchResults,
+    isLoading: isSearching,
+    error,
+    setSearchQuery,
+    setSearchResults,
+    setIsLoading,
+    setError,
+  } = useSearch()
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const [page, setPage] = useState(1)
+  const [totalResults, setTotalResults] = useState(0)
+
+  // Fetch books from Open Library API
+  const fetchBooks = useCallback(
+    async (query: string, pageNum: number) => {
+      if (!query.trim()) return
+
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch(
+          `https://openlibrary.org/search.json?q=${encodeURIComponent(
+            query
+          )}&offset=${(pageNum - 1) * BOOKS_PER_PAGE + 1}&limit=${BOOKS_PER_PAGE}`
+        )
+        const data = await response.json()
+        setSearchResults(data.docs || [])
+        setTotalResults(data.numFound || 0)
+      } catch (err) {
+        setError('Failed to fetch books. Please try again.')
+        console.error('Error fetching books:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [setSearchResults, setIsLoading, setError]
+  )
+
+  // Handle initial search from URL
+  useEffect(() => {
+    const query = searchParams.get('q')
+    const pageParam = searchParams.get('page')
+
+    if (query) {
+      setSearchQuery(query)
+      setPage(pageParam ? Number.parseInt(pageParam) : 1)
+      fetchBooks(query, pageParam ? Number.parseInt(pageParam) : 1)
+    }
+  }, [searchParams, setSearchQuery, fetchBooks])
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!searchQuery.trim()) return
+
+    const params = new URLSearchParams()
+    params.set('q', searchQuery)
+    params.set('page', '1')
+    router.push(`/?${params.toString()}`)
+    setSearchResults([])
+    setPage(1)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', newPage.toString())
+    router.push(`/?${params.toString()}`)
+    setSearchResults([])
+    setPage(newPage)
+  }
+
+  const handleClear = () => {
+    setSearchQuery('')
+    setSearchResults([])
+    setPage(1)
+    setTotalResults(0)
+    router.push('/')
+  }
+
+  const totalPages = Math.ceil(totalResults / BOOKS_PER_PAGE)
+
+  return (
+    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-4 sm:mb-6 lg:mb-8">
+          Book Search
+        </h1>
+
+        <SearchForm
+          searchQuery={searchQuery}
+          isSearching={isSearching}
+          onSearch={handleSearch}
+          onClear={handleClear}
+          onQueryChange={setSearchQuery}
+        />
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm sm:text-base">
+            {error}
+          </div>
+        )}
+
+        {searchResults.length > 0 && !isSearching && (
+          <p className="text-sm sm:text-base text-gray-600 mb-4">
+            Showing {searchResults.length} of {totalResults} results
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {!isSearching &&
+            searchResults.map((book, index) => (
+              <Book key={`${book.title}-${index}`} book={book} />
+            ))}
+          {isSearching &&
+            [...Array(6)].map((_, index) => <BookSkeleton key={index} />)}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+
+        {!isSearching &&
+          searchResults.length === 0 &&
+          searchQuery &&
+          !error && (
+            <p className="text-center text-sm sm:text-base text-gray-600 mt-6 sm:mt-8">
+              No books found. Try a different search term.
+            </p>
+          )}
+
+        {totalPages > 1 && (
+          <div className="mt-6 sm:mt-8">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        )}
+      </div>
+    </main>
+  )
 }
