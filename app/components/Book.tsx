@@ -34,7 +34,7 @@ export default function Book({ book }: BookProps) {
     }
   }
 
-  const handleReadingListToggle = (e: React.MouseEvent) => {
+  function handleReadingListToggle(e: React.MouseEvent) {
     e.stopPropagation()
     if (isBookInList) {
       removeFromReadingList(book)
@@ -46,10 +46,8 @@ export default function Book({ book }: BookProps) {
   return (
     <>
       <div
-        role="button"
         onClick={() => setIsModalOpen(true)}
         onKeyDown={handleKeyPress}
-        tabIndex={0}
         className="w-full text-left bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow cursor-pointer"
       >
         {book.cover_i && (
@@ -59,17 +57,21 @@ export default function Book({ book }: BookProps) {
             className="w-full h-48 object-cover rounded-md mb-4"
           />
         )}
+
         <h2 className="text-xl font-semibold mb-2 text-gray-600">
           {book.title}
         </h2>
+
         {book.author_name && (
           <p className="text-gray-600 mb-2">By {book.author_name.join(', ')}</p>
         )}
+
         {book.first_publish_year && (
           <p className="text-gray-500 text-sm">
             Published: {book.first_publish_year}
           </p>
         )}
+
         <Button
           variant={isBookInList ? 'danger' : 'primary'}
           size="sm"

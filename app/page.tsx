@@ -30,8 +30,6 @@ export default function Home() {
   // Fetch books from Open Library API
   const fetchBooks = useCallback(
     async (query: string, pageNum: number) => {
-      if (!query.trim()) return
-
       setIsLoading(true)
       setError(null)
 
