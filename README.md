@@ -3,6 +3,7 @@ BookBuddy is a fun, fast-growing startup on a mission to help people discover bo
 ## Getting Started
 
 - install dependencies
+
 ``` npm i ```
 
 - run the development server
